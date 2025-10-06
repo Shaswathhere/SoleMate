@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform, // <-- This was missing
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -17,6 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import { useProducts, ShoeData } from './ProductContext';
+import * as ImagePicker from 'expo-image-picker';
+import { storage } from '../../firebaseConfig';
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 interface NewProductFormProps {
   navigation: NavigationProp<RootStackParamList, 'NewProduct'>;
@@ -82,113 +86,103 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [addedProduct, setAddedProduct] = useState<ShoeData | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Current user (in real app, this would come from auth context)
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Sorry, we need camera roll permissions to make this work!');
+        }
+      }
+    })();
+  }, []);
+
   const currentUser = {
     id: 'user_001',
     name: 'John Doe'
   };
 
-  // Generate unique ID
   const generateId = (): string => {
     return `shoe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Prepare data for ShoeData interface
-  const prepareShoeData = (formData: FormValues): ShoeData => {
-    const shoeData: ShoeData = {
-      ShoeId: generateId(),
-      ShoeName: formData.productName.trim(),
-      Description: formData.productDescription.trim(),
-      Price: parseFloat(formData.productPrice),
-      imageUrl: selectedImage || `https://placeholder.co/300x300/4285F4/ffffff?text=${encodeURIComponent(formData.productName.slice(0, 10))}`,
-      category: formData.category,
-      createdAt: new Date().toISOString(),
-      Brand: formData.brand,
-      SellerName: currentUser.name,
-      SellerID: currentUser.id,
-    };
+  const handleImageUpload = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
 
-    return shoeData;
-  };
-
-  // Form submission handler
-  const handleSubmit = async (values: FormValues, { setSubmitting, resetForm }: any) => {
-    try {
-      setIsSubmitting(true);
-      setSubmitting(true);
-
-      console.log('=== FORM SUBMISSION STARTED ===');
-      console.log('Form Values:', values);
-
-      // Prepare shoe data
-      const shoeData = prepareShoeData(values);
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Add to global state
-      addProduct(shoeData);
-      setAddedProduct(shoeData);
-
-      // Show success modal
-      setShowSuccessModal(true);
-
-      // Reset form
-      resetForm();
-      setSelectedImage(null);
-
-      console.log('=== FORM SUBMISSION COMPLETED ===');
-      console.log('Added Product:', shoeData);
-
-    } catch (error) {
-      console.error('Form submission error:', error);
-      
-      Alert.alert(
-        'Submission Failed',
-        error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
-        [{ text: 'OK', style: 'default' }]
-      );
-    } finally {
-      setIsSubmitting(false);
-      setSubmitting(false);
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri);
     }
   };
 
-  // Handle image selection (placeholder)
-  const handleImageUpload = () => {
-    Alert.alert(
-      'Select Image Source',
-      'Choose how you want to add an image',
-      [
-        {
-          text: 'Camera',
-          onPress: () => simulateImageSelection('camera')
+  const uploadImage = async (uri: string) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const storageRef = ref(storage, 'product_images/' + new Date().getTime());
+    const uploadTask = uploadBytesResumable(storageRef, blob);
+
+    return new Promise((resolve, reject) => {
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
         },
-        {
-          text: 'Gallery',
-          onPress: () => simulateImageSelection('gallery')
+        (error) => {
+          reject(error);
         },
-        {
-          text: 'Cancel',
-          style: 'cancel'
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            resolve(downloadURL);
+          });
         }
-      ]
-    );
+      );
+    });
   };
 
-  // Simulate image selection
-  const simulateImageSelection = (source: string) => {
-    const placeholderImage = `https://placeholder.co/300x300/4285F4/ffffff?text=Product+Image`;
-    setSelectedImage(placeholderImage);
-    
-    Alert.alert(
-      'Image Selected',
-      `Placeholder image selected from ${source}. Actual image upload will be implemented later.`
-    );
+  const handleSubmit = async (values: FormValues, { setSubmitting, resetForm }: any) => {
+    if (!selectedImage) {
+      Alert.alert('Please select an image');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitting(true);
+    try {
+      const imageUrl = await uploadImage(selectedImage);
+      const shoeData: ShoeData = {
+        ShoeId: generateId(),
+        ShoeName: values.productName.trim(),
+        Description: values.productDescription.trim(),
+        Price: parseFloat(values.productPrice),
+        imageUrl: imageUrl as string,
+        category: values.category,
+        createdAt: new Date().toISOString(),
+        Brand: values.brand,
+        SellerName: currentUser.name,
+        SellerID: currentUser.id,
+      };
+
+      addProduct(shoeData);
+      setAddedProduct(shoeData);
+      setShowSuccessModal(true);
+      resetForm();
+      setSelectedImage(null);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      Alert.alert('Submission Failed', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+      setSubmitting(false);
+      setUploadProgress(0);
+    }
   };
 
-  // Success Modal Component
   const SuccessModal = () => (
     <Modal
       animationType="fade"
@@ -222,7 +216,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
               style={[styles.modalButton, styles.addProductButton]}
               onPress={() => {
                 setShowSuccessModal(false);
-                // Form is already reset, stay on current screen
               }}
             >
               <Text style={styles.addProductButtonText}>Add Another Product</Text>
@@ -236,7 +229,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -245,6 +237,7 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>New Product</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         <Formik
@@ -269,7 +262,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
             setFieldValue,
           }) => (
             <View style={styles.formContainer}>
-              {/* Image Upload Section */}
               <View style={styles.imageSection}>
                 <Text style={styles.label}>Product Image</Text>
                 
@@ -291,17 +283,17 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                     <View style={styles.uploadIcon}>
                       <Ionicons name="cloud-upload" size={40} color="#4285F4" />
                     </View>
-                    <Text style={styles.uploadText}>Drop your Image(s) to start uploading</Text>
+                    <Text style={styles.uploadText}>Tap to upload an image</Text>
                     <Text style={styles.orText}>OR</Text>
                     <View style={styles.browseButton}>
                       <Text style={styles.browseButtonText}>Browse files</Text>
                     </View>
                   </TouchableOpacity>
                 )}
+                 {isSubmitting && uploadProgress > 0 && <Text style={styles.uploadProgressText}>{`Uploading: ${uploadProgress.toFixed(0)}%`}</Text>}
               </View>
 
-              {/* Product Name */}
-              <View style={styles.inputContainer}>
+               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Product Name</Text>
                 <TextInput
                   style={[
@@ -322,7 +314,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Brand Selection */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Brand</Text>
                 <ScrollView 
@@ -353,7 +344,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Category Selection */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Category</Text>
                 <ScrollView 
@@ -384,7 +374,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Product Description */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Product Description</Text>
                 <TextInput
@@ -409,7 +398,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Product Price */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Product Price</Text>
                 <View style={styles.priceInputContainer}>
@@ -436,7 +424,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 )}
               </View>
 
-              {/* Submit Button */}
               <TouchableOpacity
                 style={[
                   styles.submitButton,
@@ -446,18 +433,9 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                 disabled={isSubmitting || formikSubmitting}
               >
                 <Text style={styles.submitButtonText}>
-                  {isSubmitting || formikSubmitting ? 'Adding Product...' : 'Add Product'}
+                  {isSubmitting || formikSubmitting ? `Uploading... ${uploadProgress.toFixed(0)}%` : 'Add Product'}
                 </Text>
               </TouchableOpacity>
-
-              {/* Debug Information */}
-              <View style={styles.debugContainer}>
-                <Text style={styles.debugTitle}>Debug Info:</Text>
-                <Text style={styles.debugText}>Ready for Firestore Integration</Text>
-                <Text style={styles.debugText}>Image: {selectedImage ? 'Selected' : 'None'}</Text>
-                <Text style={styles.debugText}>Form Valid: {Object.keys(errors).length === 0 ? 'Yes' : 'No'}</Text>
-                <Text style={styles.debugText}>User: {currentUser.name} ({currentUser.id})</Text>
-              </View>
             </View>
           )}
         </Formik>
@@ -468,7 +446,6 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
   );
 };
 
-// Updated ProductsScreen to use context
 const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { getUserProducts } = useProducts();
   const currentUser = { id: 'user_001', name: 'John Doe' };
@@ -478,7 +455,6 @@ const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
@@ -505,11 +481,7 @@ const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }
         ) : (
           userProducts.map((product) => (
             <View key={product.ShoeId} style={styles.productCard}>
-              <View style={styles.productImageContainer}>
-                <View style={styles.productImagePlaceholder}>
-                  <Ionicons name="footsteps" size={40} color="#ccc" />
-                </View>
-              </View>
+              <Image source={{uri: product.imageUrl}} style={styles.productImage} />
               <View style={styles.productInfo}>
                 <Text style={styles.productCategory}>{product.category}</Text>
                 <Text style={styles.productName}>{product.ShoeName}</Text>
@@ -524,7 +496,6 @@ const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }
         )}
       </ScrollView>
 
-      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="home-outline" size={24} color="#999" />
@@ -563,13 +534,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backButton: {
-    marginRight: 16,
+    padding: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4285F4',
-    flex: 1,
+    color: '#333',
     textAlign: 'center',
   },
   addProductText: {
@@ -635,6 +605,11 @@ const styles = StyleSheet.create({
     color: '#4285F4',
     fontSize: 16,
     fontWeight: '500',
+  },
+  uploadProgressText: {
+    textAlign: 'center',
+    marginTop: 10,
+    color: '#4285F4'
   },
   inputContainer: {
     marginBottom: 20,
@@ -754,26 +729,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  debugContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#f0f8ff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4285F4',
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4285F4',
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -840,57 +795,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Products Screen Styles
   productsContainer: {
     flex: 1,
     padding: 16,
   },
   productCard: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  productImageContainer: {
-    marginRight: 16,
-  },
-  productImagePlaceholder: {
+  productImage: {
     width: 80,
     height: 80,
-    backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: 16,
+    backgroundColor: '#f0f0f0'
   },
   productInfo: {
     flex: 1,
   },
   productCategory: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#666',
     marginBottom: 4,
     textTransform: 'capitalize',
   },
   productName: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
     marginBottom: 4,
   },
   productBrand: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    color: '#666',
     marginBottom: 8,
   },
   productPrice: {
     fontSize: 16,
-    color: '#fff',
+    color: '#4285F4',
     fontWeight: 'bold',
   },
   editProductButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#f0f0f0',
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -927,7 +882,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Bottom Navigation
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -962,5 +916,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export { NewProductForm, ProductsScreenWithContext };
 export default NewProductForm;
+export { ProductsScreenWithContext };
