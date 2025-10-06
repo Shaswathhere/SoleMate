@@ -10,24 +10,14 @@ import {
   TouchableOpacity,
   FlatList,
   StatusBar,
+  ActivityIndicator,
+  Image,
   type ListRenderItem,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { type NavigationProp, useFocusEffect } from "@react-navigation/native"
 import type { RootStackParamList } from "../../App"
-
-interface ShoeData {
-  ShoeId: string
-  ShoeName: string
-  Description: string
-  Price: number
-  imageUrl: string
-  category: string
-  createdAt: string
-  Brand: string
-  SellerName: string
-  SellerID: string
-}
+import { useProducts, ShoeData } from './ProductContext';
 
 interface Category {
   id: string
@@ -39,115 +29,18 @@ interface HomeScreenProps {
   navigation: NavigationProp<RootStackParamList, "Home">
 }
 
-const shoesData: ShoeData[] = [
-  {
-    ShoeId: "1",
-    ShoeName: "adidas Multix Originals Shoes Sep...",
-    Description: "Comfortable running shoes with modern design",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+1",
-    category: "running",
-    createdAt: "2024-01-15T08:30:00Z",
-    Brand: "Adidas",
-    SellerName: "SportZone",
-    SellerID: "seller_001",
-  },
-  {
-    ShoeId: "2",
-    ShoeName: "Mizuno Original Thunder Blade 2 Mi...",
-    Description: "Professional volleyball shoes with excellent grip",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+2",
-    category: "volleyball",
-    createdAt: "2024-01-14T10:15:00Z",
-    Brand: "Mizuno",
-    SellerName: "Athletic Pro",
-    SellerID: "seller_002",
-  },
-  {
-    ShoeId: "3",
-    ShoeName: "Lining Ranger IV Drive AYTO 053 / AYTO0...",
-    Description: "Badminton shoes with superior court performance",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+3",
-    category: "badminton",
-    createdAt: "2024-01-13T14:22:00Z",
-    Brand: "Li-Ning",
-    SellerName: "Racquet World",
-    SellerID: "seller_003",
-  },
-  {
-    ShoeId: "4",
-    ShoeName: "Ardmore Flat Shoes Grey - Sepatu Wanita",
-    Description: "Elegant flat shoes for everyday comfort",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+4",
-    category: "lifestyle",
-    createdAt: "2024-01-12T09:45:00Z",
-    Brand: "Ardmore",
-    SellerName: "Fashion Steps",
-    SellerID: "seller_004",
-  },
-  {
-    ShoeId: "5",
-    ShoeName: "Ortuseight Iemario da silva",
-    Description: "Football boots with professional grade quality",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+5",
-    category: "football",
-    createdAt: "2024-01-11T16:30:00Z",
-    Brand: "Ortuseight",
-    SellerName: "Goal Keeper",
-    SellerID: "seller_005",
-  },
-  {
-    ShoeId: "6",
-    ShoeName: "Nike Renew Elevate III DD9304-003 BNIB",
-    Description: "Basketball shoes with Renew foam technology",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+6",
-    category: "lifestyle",
-    createdAt: "2024-01-10T11:20:00Z",
-    Brand: "Nike",
-    SellerName: "Swoosh Store",
-    SellerID: "seller_006",
-  },
-  {
-    ShoeId: "7",
-    ShoeName: "910 Nineten Geist Ekiden Hitam Premium",
-    Description: "Premium running shoes for marathon performance",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+7",
-    category: "running",
-    createdAt: "2024-01-09T13:55:00Z",
-    Brand: "910 Nineten",
-    SellerName: "Runner's Paradise",
-    SellerID: "seller_007",
-  },
-  {
-    ShoeId: "8",
-    ShoeName: "Mizuno Original Thunder Blade 2 Mi...",
-    Description: "High-performance badminton shoes",
-    Price: 350,
-    imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+8",
-    category: "badminton",
-    createdAt: "2024-01-08T12:10:00Z",
-    Brand: "Mizuno",
-    SellerName: "Court Masters",
-    SellerID: "seller_008",
-  },
-]
-
 const categories: Category[] = [
+  { id: "all", name: "All", icon: "grid" },
   { id: "running", name: "Running", icon: "walk" },
   { id: "lifestyle", name: "Lifestyle", icon: "shirt" },
   { id: "football", name: "Football", icon: "football" },
-  { id: "volleyball", name: "Volleyball", icon: "basketball" },
+  { id: "basketball", name: "Basketball", icon: "basketball" },
   { id: "tennis", name: "Tennis", icon: "tennisball" },
   { id: "badminton", name: "Badminton", icon: "baseball" },
 ]
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const { products, loading, error } = useProducts();
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
@@ -155,9 +48,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   useFocusEffect(
     React.useCallback(() => {
-      setSelectedCategory("all")
-      setSearchQuery("")
-
       const state = navigation.getState()
       const route = state?.routes?.[state.index]?.name || "Home"
       setCurrentRoute(route)
@@ -174,25 +64,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setFavorites(newFavorites)
   }
 
-  const formatPrice = (price: number): string => `$ ${price.toLocaleString("id-ID")}`
-
-  const renderStars = (rating = 4.5): React.ReactElement[] => {
-    const stars: React.ReactElement[] = []
-    const fullStars: number = Math.floor(rating)
-    const hasHalfStar: boolean = rating % 1 !== 0
-
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(<Ionicons key={i} name="star" size={12} color="#FFD700" />)
-    }
-    if (hasHalfStar) {
-      stars.push(<Ionicons key="half" name="star-half" size={12} color="#FFD700" />)
-    }
-    const remainingStars: number = 5 - Math.ceil(rating)
-    for (let i = 0; i < remainingStars; i++) {
-      stars.push(<Ionicons key={`empty-${i}`} name="star-outline" size={12} color="#FFD700" />)
-    }
-    return stars
-  }
+  const formatPrice = (price: number): string => `₹ ${price.toLocaleString("en-IN")}`
 
   const renderShoeCard: ListRenderItem<ShoeData> = ({ item }) => (
     <TouchableOpacity style={styles.shoeCard} activeOpacity={0.8}>
@@ -204,22 +76,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
       </TouchableOpacity>
 
-      <View style={styles.imageContainer}>
-        <View style={styles.placeholderImage}>
-          <Ionicons name="footsteps" size={40} color="#ccc" />
-        </View>
-      </View>
+      <Image source={{ uri: item.imageUrl }} style={styles.shoeImage} />
 
       <View style={styles.shoeInfo}>
+        <Text style={styles.shoeBrand}>{item.Brand}</Text>
         <Text style={styles.shoeName} numberOfLines={2}>
           {item.ShoeName}
         </Text>
-
-        <View style={styles.ratingContainer}>
-          {renderStars()}
-          <Text style={styles.ratingText}>4.5</Text>
-        </View>
-
         <Text style={styles.shoePrice}>{formatPrice(item.Price)}</Text>
       </View>
     </TouchableOpacity>
@@ -238,38 +101,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     </TouchableOpacity>
   )
 
-  const handleHomePress = () => {
-    const state = navigation.getState()
-    const currentRoute = state?.routes?.[state.index]?.name
-
-    if (currentRoute === "Home") {
-      setSelectedCategory("all")
-      setSearchQuery("")
-      return
-    }
-
-    navigation.navigate("Home")
-  }
-
-  const handleProfilePress = () => {
-    if (currentRoute === "Profile") {
-      return
-    }
-
-    navigation.navigate("Profile")
-  }
+  const filteredProducts = products.filter(shoe => {
+    const matchesCategory = selectedCategory === 'all' || shoe.category.toLowerCase() === selectedCategory;
+    const matchesSearch = shoe.ShoeName.toLowerCase().includes(searchQuery.toLowerCase()) || shoe.Brand.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Puma, Running, Training..."
+            placeholder="Search for shoes..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#999"
@@ -279,13 +126,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          {/* Banner */}
           <View style={styles.banner}>
             <View style={styles.bannerContent}>
-              <Text style={styles.bannerTitle}>New Collections!</Text>
-              <Text style={styles.bannerSubtitle}>50% Discount on the first collection</Text>
+              <Text style={styles.bannerTitle}>SoleMate Collections</Text>
+              <Text style={styles.bannerSubtitle}>Find your perfect pair today.</Text>
               <TouchableOpacity style={styles.shopNowButton}>
-                <Text style={styles.shopNowText}>SHOP NOW</Text>
+                <Text style={styles.shopNowText}>EXPLORE</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.bannerImage}>
@@ -293,37 +139,39 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Categories */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Categories</Text>
-              <TouchableOpacity>
-                <Text style={styles.seeAllText}>See All</Text>
-              </TouchableOpacity>
             </View>
-            <View style={styles.categoriesContainer}>{categories.map(renderCategoryButton)}</View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
+              {categories.map(renderCategoryButton)}
+            </ScrollView>
           </View>
 
-          {/* For You Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>For you</Text>
-            <FlatList
-              data={selectedCategory === "all" ? shoesData : shoesData.filter((s) => s.category === selectedCategory)}
-              renderItem={renderShoeCard}
-              keyExtractor={(item) => item.ShoeId}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-              removeClippedSubviews={false}
-            />
+            <Text style={styles.sectionTitle}>For You</Text>
+            {loading ? (
+              <ActivityIndicator size="large" color="#4A90E2" style={{ marginTop: 50 }} />
+            ) : error ? (
+              <Text style={styles.errorText}>Failed to load products. Please try again later.</Text>
+            ) : (
+              <FlatList
+                data={filteredProducts}
+                renderItem={renderShoeCard}
+                keyExtractor={(item) => item.ShoeId}
+                numColumns={2}
+                columnWrapperStyle={styles.row}
+                scrollEnabled={false}
+              />
+            )}
           </View>
         </View>
       </ScrollView>
 
+
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={handleHomePress}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Home")}>
           <Ionicons name="home" size={24} color={currentRoute === "Home" ? "#4A90E2" : "#999"} />
           <Text style={[styles.navText, { color: currentRoute === "Home" ? "#4A90E2" : "#999" }]}>Home</Text>
         </TouchableOpacity>
@@ -338,7 +186,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <Text style={styles.navText}>Wishlist</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem} onPress={handleProfilePress}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate("Profile")}>
           <Ionicons name="person-outline" size={24} color={currentRoute === "Profile" ? "#4A90E2" : "#999"} />
           <Text style={[styles.navText, { color: currentRoute === "Profile" ? "#4A90E2" : "#999" }]}>Profile</Text>
         </TouchableOpacity>
@@ -348,87 +196,82 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 20 },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: StatusBar.currentHeight || 20,
+    paddingBottom: 16,
     backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
-    marginBottom: 8,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
+    backgroundColor: "#f0f2f5",
+    borderRadius: 12,
     paddingHorizontal: 12,
-    height: 44,
-    borderWidth: 1,
+    height: 48,
   },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: "#333" },
-  content: { paddingHorizontal: 16 },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 16, color: "#333" },
+  content: { paddingHorizontal: 16, paddingTop: 16 },
   banner: {
     backgroundColor: "#4A90E2",
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   bannerContent: { flex: 1 },
-  bannerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold", marginBottom: 4 },
-  bannerSubtitle: { color: "rgba(255,255,255,0.9)", fontSize: 12, marginBottom: 12 },
+  bannerTitle: { color: "#fff", fontSize: 20, fontWeight: "bold", marginBottom: 6 },
+  bannerSubtitle: { color: "rgba(255,255,255,0.9)", fontSize: 14, marginBottom: 16 },
   shopNowButton: {
     backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 20,
     alignSelf: "flex-start",
   },
-  shopNowText: { color: "#4A90E2", fontSize: 12, fontWeight: "bold" },
+  shopNowText: { color: "#4A90E2", fontSize: 14, fontWeight: "bold" },
   bannerImage: { marginLeft: 16 },
   section: { marginBottom: 24 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
-  seeAllText: { color: "#4A90E2", fontSize: 14 },
-  categoriesContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "space-around" },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  sectionTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
+  seeAllText: { color: "#4A90E2", fontSize: 14, fontWeight: '500' },
+  categoriesContainer: { paddingBottom: 10, paddingRight: 16 },
   categoryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
-    marginBottom: 8,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0'
   },
-  categoryButtonActive: { backgroundColor: "#4A90E2" },
-  categoryText: { marginLeft: 6, fontSize: 12, color: "#666" },
-  categoryTextActive: { color: "#fff" },
+  categoryButtonActive: { backgroundColor: "#4A90E2", borderColor: '#4A90E2' },
+  categoryText: { marginLeft: 8, fontSize: 14, color: "#666" },
+  categoryTextActive: { color: "#fff", fontWeight: '500' },
   row: { justifyContent: "space-between" },
   shoeCard: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
     marginBottom: 16,
     width: "48%",
-    elevation: 2,
+    elevation: 3,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
   },
   favoriteButton: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 12,
+    right: 12,
     zIndex: 1,
     backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 15,
@@ -437,20 +280,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  imageContainer: { alignItems: "center", marginBottom: 12 },
-  placeholderImage: {
-    width: 120,
-    height: 120,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
+  shoeImage: {
+    width: '100%',
+    height: 140,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
-  shoeInfo: { alignItems: "flex-start" },
-  shoeName: { fontSize: 14, fontWeight: "500", color: "#333", marginBottom: 4, lineHeight: 18 },
-  ratingContainer: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  ratingText: { fontSize: 12, color: "#666", marginLeft: 4 },
-  shoePrice: { fontSize: 14, fontWeight: "bold", color: "#4A90E2" },
+  shoeInfo: { padding: 12 },
+  shoeBrand: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  shoeName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+    height: 34,
+  },
+  shoePrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#4A90E2",
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#666'
+  },
   bottomNav: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -458,14 +317,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderTopWidth: 1,
     borderTopColor: "#e9ecef",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   navItem: { flex: 1, alignItems: "center", paddingVertical: 4 },
   navText: { fontSize: 10, marginTop: 2, color: "#999" },
-})
+});
 
-export default HomeScreen
+export default HomeScreen;
