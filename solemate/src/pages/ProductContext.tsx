@@ -1,5 +1,6 @@
-// ProductContext.tsx - Global state management for products
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { db } from '../../firebaseConfig';
+import { collection, getDocs } from 'firebase/firestore';
 
 export interface ShoeData {
   ShoeId: string;
@@ -23,37 +24,30 @@ interface ProductContextType {
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<ShoeData[]>([
-    // Initial sample products
-    {
-      ShoeId: "1",
-      ShoeName: "adidas Multix Originals Shoes Sep...",
-      Description: "Comfortable running shoes with modern design",
-      Price: 350,
-      imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Shoe+1",
-      category: "running",
-      createdAt: "2024-01-15T08:30:00Z",
-      Brand: "Adidas",
-      SellerName: "John Doe",
-      SellerID: "user_001"
-    },
-    {
-      ShoeId: "2",
-      ShoeName: "Nike Air Max Premium Collection",
-      Description: "Premium Nike Air Max with superior comfort",
-      Price: 450,
-      imageUrl: "https://placeholder.co/150x150/cccccc/666666?text=Nike",
-      category: "lifestyle",
-      createdAt: "2024-01-14T10:15:00Z",
-      Brand: "Nike",
-      SellerName: "John Doe",
-      SellerID: "user_001"
-    }
-  ]);
+  const [products, setProducts] = useState<ShoeData[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const productsCollection = collection(db, 'products');
+        const productSnapshot = await getDocs(productsCollection);
+        const productsList = productSnapshot.docs.map(doc => {
+          const data = doc.data() as ShoeData;
+          console.log("Fetched product:", { id: doc.id, ...data }); // Log each product
+          return { ...data, ShoeId: doc.id };
+        });
+        setProducts(productsList);
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
 
   const addProduct = (product: ShoeData) => {
     setProducts(prevProducts => [...prevProducts, product]);
-    console.log('Product added to global state:', product);
   };
 
   const getUserProducts = (sellerId: string): ShoeData[] => {
