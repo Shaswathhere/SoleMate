@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { db } from '../../firebaseConfig';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 export interface ShoeData {
   ShoeId: string;
@@ -17,6 +17,8 @@ export interface ShoeData {
 
 interface ProductContextType {
   products: ShoeData[];
+  loading: boolean;
+  error: Error | null;
   addProduct: (product: ShoeData) => void;
   getUserProducts: (sellerId: string) => ShoeData[];
 }
@@ -25,28 +27,33 @@ const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<ShoeData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const productsCollection = collection(db, 'products');
-        const productSnapshot = await getDocs(productsCollection);
-        const productsList = productSnapshot.docs.map(doc => {
-          const data = doc.data() as ShoeData;
-          console.log("Fetched product:", { id: doc.id, ...data }); // Log each product
-          return { ...data, ShoeId: doc.id };
-        });
-        setProducts(productsList);
-      } catch (error) {
-        console.error("Error fetching products: ", error);
-      }
-    };
+    setLoading(true);
+    const q = query(collection(db, "products"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsList: ShoeData[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as Omit<ShoeData, 'ShoeId'>;
+        productsList.push({ ...data, ShoeId: doc.id });
+      });
+      setProducts(productsList);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching products: ", err);
+      setError(err);
+      setLoading(false);
+    });
 
-    fetchProducts();
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
-
   const addProduct = (product: ShoeData) => {
+    // This now optimistically adds the product to the local state.
+    // Firestore's real-time listener will soon overwrite this with the official data.
     setProducts(prevProducts => [...prevProducts, product]);
   };
 
@@ -55,7 +62,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <ProductContext.Provider value={{ products, addProduct, getUserProducts }}>
+    <ProductContext.Provider value={{ products, loading, error, addProduct, getUserProducts }}>
       {children}
     </ProductContext.Provider>
   );
