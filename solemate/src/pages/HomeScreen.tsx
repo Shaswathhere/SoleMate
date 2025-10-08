@@ -67,7 +67,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const formatPrice = (price: number): string => `₹ ${price.toLocaleString("en-IN")}`
 
   const renderShoeCard: ListRenderItem<ShoeData> = ({ item }) => (
-    <TouchableOpacity style={styles.shoeCard} activeOpacity={0.8}>
+
+    <TouchableOpacity
+      style={styles.shoeCard}
+      activeOpacity={0.8}
+      // Add the onPress handler here to navigate
+      onPress={() => navigation.navigate('ProductDetail', { productId: item.ShoeId })}
+    >
       <TouchableOpacity style={styles.favoriteButton} onPress={() => toggleFavorite(item.ShoeId)} activeOpacity={0.7}>
         <Ionicons
           name={favorites.has(item.ShoeId) ? "heart" : "heart-outline"}
@@ -75,9 +81,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           color={favorites.has(item.ShoeId) ? "#FF6B6B" : "#999"}
         />
       </TouchableOpacity>
-
       <Image source={{ uri: item.imageUrl }} style={styles.shoeImage} />
-
       <View style={styles.shoeInfo}>
         <Text style={styles.shoeBrand}>{item.Brand}</Text>
         <Text style={styles.shoeName} numberOfLines={2}>
@@ -196,7 +200,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  container: { flex: 1, backgroundColor: '#f8f9fa', 
+        marginTop: StatusBar.currentHeight || 0, },
   header: {
     paddingHorizontal: 16,
     paddingTop: StatusBar.currentHeight || 20,

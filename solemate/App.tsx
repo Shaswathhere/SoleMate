@@ -1,21 +1,23 @@
-import { NavigationContainer } from "@react-navigation/native"
-import { createNativeStackNavigator } from "@react-navigation/native-stack"
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // Import all screens
-import HomeScreen from "./src/pages/HomeScreen"
-import { ProfileScreen, UpdateProfileScreen } from "./src/pages/ProfileScreen"
-import NewProductForm, { ProductsScreenWithContext } from "./src/pages/NewProductForm"
-import { ProductProvider } from "./src/pages/ProductContext"
+import HomeScreen from "./src/pages/HomeScreen";
+import { ProfileScreen, UpdateProfileScreen } from "./src/pages/ProfileScreen";
+import NewProductForm, { ProductsScreenWithContext } from "./src/pages/NewProductForm";
+import ProductDetailScreen from "./src/pages/ProductDetailScreen"; // <-- Import new screen
+import { ProductProvider } from "./src/pages/ProductContext";
 
 export type RootStackParamList = {
-  Home: undefined
-  Profile: undefined
-  UpdateProfile: undefined
-  Products: undefined
-  NewProduct: undefined
-}
+  Home: undefined;
+  Profile: undefined;
+  UpdateProfile: undefined;
+  Products: undefined;
+  NewProduct: undefined;
+  ProductDetail: { productId: string }; // <-- Add ProductDetail route with params
+};
 
-const Stack = createNativeStackNavigator<RootStackParamList>()
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -63,8 +65,16 @@ export default function App() {
               title: "New Product Screen",
             }}
           />
+          {/* Add the ProductDetailScreen to the navigator */}
+          <Stack.Screen
+            name="ProductDetail"
+            component={ProductDetailScreen}
+            options={{
+              title: "Product Detail",
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </ProductProvider>
-  )
+  );
 }
