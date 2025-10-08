@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from "react-native"
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView, StatusBar } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { TextInput } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
@@ -66,7 +66,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       subtitle: "Further secure your account for safety",
       icon: "shield-outline",
       hasAlert: false,
-      onPress: () => {},
+      onPress: () => { },
     },
     {
       id: "logout",
@@ -74,7 +74,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       subtitle: "Further secure your account for safety",
       icon: "log-out-outline",
       hasAlert: false,
-      onPress: () => {},
+      onPress: () => { },
     },
   ]
 
@@ -83,13 +83,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       id: "help",
       title: "Help & Support",
       icon: "help-circle-outline",
-      onPress: () => {},
+      onPress: () => { },
     },
     {
       id: "about",
       title: "About App",
       icon: "heart-outline",
-      onPress: () => {},
+      onPress: () => { },
     },
   ]
 
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
-    paddingTop: 20,
+    marginTop: StatusBar.currentHeight || 0,
   },
   header: {
     flexDirection: "row",

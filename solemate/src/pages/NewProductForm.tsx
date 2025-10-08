@@ -10,7 +10,8 @@ import {
   Alert,
   Image,
   Modal,
-  Platform, // <-- This was missing
+  Platform,
+  StatusBar, // <-- This was missing
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -19,8 +20,12 @@ import { NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import { useProducts, ShoeData } from './ProductContext';
 import * as ImagePicker from 'expo-image-picker';
-import { storage } from '../../firebaseConfig';
+import { db, storage } from '../../firebaseConfig';
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+
+// import { db, storage } from '../../firebaseConfig';
+// import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { collection, addDoc } from "firebase/firestore";
 
 interface NewProductFormProps {
   navigation: NavigationProp<RootStackParamList, 'NewProduct'>;
@@ -58,7 +63,7 @@ const ProductSchema = Yup.object().shape({
 // Categories and brands
 const categories = [
   'running',
-  'lifestyle', 
+  'lifestyle',
   'football',
   'basketball',
   'tennis',
@@ -81,11 +86,17 @@ const brands = [
 ];
 
 const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
-  const { addProduct } = useProducts();
+  // const { addProduct } = useProducts();
+  // const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // const [isSubmitting, setIsSubmitting] = useState(false);
+  // const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // const [addedProduct, setAddedProduct] = useState<ShoeData | null>(null);
+  // const [uploadProgress, setUploadProgress] = useState(0);
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [addedProduct, setAddedProduct] = useState<ShoeData | null>(null);
+  const [addedProduct, setAddedProduct] = useState<Partial<ShoeData> | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
@@ -154,9 +165,11 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
     setIsSubmitting(true);
     setSubmitting(true);
     try {
+      // 1. Upload image to Storage (already implemented)
       const imageUrl = await uploadImage(selectedImage);
-      const shoeData: ShoeData = {
-        ShoeId: generateId(),
+
+      // 2. Prepare product data (without ShoeId)
+      const newProductData = {
         ShoeName: values.productName.trim(),
         Description: values.productDescription.trim(),
         Price: parseFloat(values.productPrice),
@@ -168,13 +181,18 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
         SellerID: currentUser.id,
       };
 
-      addProduct(shoeData);
-      setAddedProduct(shoeData);
+      // 3. Add the new product document to the 'products' collection in Firestore
+      const docRef = await addDoc(collection(db, "products"), newProductData);
+      console.log("Document written with ID: ", docRef.id);
+
+      // 4. Show success modal and reset form
+      setAddedProduct(newProductData);
       setShowSuccessModal(true);
       resetForm();
       setSelectedImage(null);
+
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error('Error adding document: ', error);
       Alert.alert('Submission Failed', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -195,7 +213,7 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
           </View>
-          
+
           <Text style={styles.successTitle}>Product Added Successfully!</Text>
           <Text style={styles.successMessage}>
             "{addedProduct?.ShoeName}" has been added to your products.
@@ -230,7 +248,7 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -264,11 +282,11 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
             <View style={styles.formContainer}>
               <View style={styles.imageSection}>
                 <Text style={styles.label}>Product Image</Text>
-                
+
                 {selectedImage ? (
                   <View style={styles.selectedImageContainer}>
                     <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.removeImageButton}
                       onPress={() => setSelectedImage(null)}
                     >
@@ -276,7 +294,7 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.imageUploadContainer}
                     onPress={handleImageUpload}
                   >
@@ -290,10 +308,10 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
                     </View>
                   </TouchableOpacity>
                 )}
-                 {isSubmitting && uploadProgress > 0 && <Text style={styles.uploadProgressText}>{`Uploading: ${uploadProgress.toFixed(0)}%`}</Text>}
+                {isSubmitting && uploadProgress > 0 && <Text style={styles.uploadProgressText}>{`Uploading: ${uploadProgress.toFixed(0)}%`}</Text>}
               </View>
 
-               <View style={styles.inputContainer}>
+              <View style={styles.inputContainer}>
                 <Text style={styles.label}>Product Name</Text>
                 <TextInput
                   style={[
@@ -316,8 +334,8 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Brand</Text>
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.categoryScrollView}
                 >
@@ -346,8 +364,8 @@ const NewProductForm: React.FC<NewProductFormProps> = ({ navigation }) => {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Category</Text>
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.categoryScrollView}
                 >
@@ -471,7 +489,7 @@ const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }
             <Ionicons name="bag-outline" size={60} color="#ccc" />
             <Text style={styles.emptyStateTitle}>No Products Yet</Text>
             <Text style={styles.emptyStateText}>Add your first product to get started</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.emptyStateButton}
               onPress={() => navigation.navigate('NewProduct')}
             >
@@ -481,7 +499,7 @@ const ProductsScreenWithContext: React.FC<{ navigation: any }> = ({ navigation }
         ) : (
           userProducts.map((product) => (
             <View key={product.ShoeId} style={styles.productCard}>
-              <Image source={{uri: product.imageUrl}} style={styles.productImage} />
+              <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
               <View style={styles.productInfo}>
                 <Text style={styles.productCategory}>{product.category}</Text>
                 <Text style={styles.productName}>{product.ShoeName}</Text>
@@ -523,7 +541,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-    paddingTop: 20,
+    marginTop: StatusBar.currentHeight || 0,
+    marginBottom: StatusBar.currentHeight || 0,
   },
   header: {
     flexDirection: 'row',
