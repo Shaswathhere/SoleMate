@@ -14,11 +14,11 @@ import { RouteProp, NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { RootStackParamList } from '../../App';
+import { HomeStackParamList  } from '../../App';
 import { ShoeData } from './ProductContext';
 
-type ProductDetailScreenRouteProp = RouteProp<RootStackParamList, 'ProductDetail'>;
-type ProductDetailScreenNavigationProp = NavigationProp<RootStackParamList, 'ProductDetail'>;
+type ProductDetailScreenRouteProp = RouteProp<HomeStackParamList , 'ProductDetail'>;
+type ProductDetailScreenNavigationProp = NavigationProp<HomeStackParamList , 'ProductDetail'>;
 
 interface ProductDetailScreenProps {
     route: ProductDetailScreenRouteProp;
