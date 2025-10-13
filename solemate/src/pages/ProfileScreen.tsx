@@ -1,10 +1,12 @@
 "use client"
 
 import React from "react"
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView, StatusBar } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, StatusBar } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { TextInput } from "react-native"
 import { useFocusEffect } from "@react-navigation/native"
+import { useAuth } from "../auth/AuthContext"
+import { SafeAreaView } from "react-native-safe-area-context"
 
 interface ProfileScreenProps {
   navigation: any
@@ -13,6 +15,7 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [currentRouteName, setCurrentRouteName] = React.useState<string>("Profile")
   const [activeTab, setActiveTab] = React.useState<"Home" | "Profile">("Profile")
+  const { logout } = useAuth()
 
   useFocusEffect(
     React.useCallback(() => {
@@ -66,7 +69,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       subtitle: "Further secure your account for safety",
       icon: "shield-outline",
       hasAlert: false,
-      onPress: () => { },
+      onPress: () => {},
     },
     {
       id: "logout",
@@ -74,7 +77,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       subtitle: "Further secure your account for safety",
       icon: "log-out-outline",
       hasAlert: false,
-      onPress: () => { },
+      onPress: async () => {
+        try {
+          await logout()
+        } catch (e) {
+          // no-op, AuthContext handles errors
+        }
+      },
     },
   ]
 
@@ -83,13 +92,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       id: "help",
       title: "Help & Support",
       icon: "help-circle-outline",
-      onPress: () => { },
+      onPress: () => {},
     },
     {
       id: "about",
       title: "About App",
       icon: "heart-outline",
-      onPress: () => { },
+      onPress: () => {},
     },
   ]
 
