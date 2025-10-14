@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { View, ActivityIndicator } from "react-native";
 
 // Import all screens
 import HomeScreen from "./src/pages/HomeScreen"
@@ -49,6 +50,15 @@ function HomeStack() {
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
     </Stack.Navigator>
   )
+}
+
+// Simple Splash Screen Component
+function SplashScreen() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <ActivityIndicator size="large" color="#4A90E2" />
+    </View>
+  );
 }
 
 // Profile Stack Navigator
@@ -98,8 +108,8 @@ function Tabs() {
 function RootNavigator() {
   const { user, loading } = useAuth()
   if (loading) {
-    // Very lightweight splash
-    return null
+    // Show splash screen while checking session
+    return <SplashScreen />;
   }
   return user ? <Tabs /> : <AuthStack />
 }

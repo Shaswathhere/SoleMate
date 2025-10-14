@@ -12,6 +12,7 @@ import {
 import { auth } from "../../firebaseConfig"
 import { storeUserSession, getUserSession, clearUserSession } from "../utils/session"
 
+
 type AuthContextType = {
   user: User | null
   loading: boolean
@@ -30,26 +31,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const checkUserSession = async () => {
-      const storedUser = await getUserSession();
-      if (storedUser) {
-        setUser(storedUser);
+    const checkSessionAndSubscribe = async () => {
+      try {
+        // Use the utility method to get the session
+        const storedUser = await getUserSession();
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      } catch (e) {
+        console.error("Failed to restore session", e);
+      } finally {
+        // The onAuthStateChanged listener will then take over as the source of truth
+        // for any subsequent auth state changes during the app's lifecycle.
+        const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+          console.log("[v0] onAuthStateChanged user:", firebaseUser ? firebaseUser.uid : null);
+          if (firebaseUser) {
+            setUser(firebaseUser);
+            storeUserSession(firebaseUser); // Keep storage in sync
+          } else {
+            setUser(null);
+          }
+          setLoading(false); // Hide splash screen after the check is complete
+        });
+        return unsub;
       }
-      setLoading(false);
     };
 
-    checkUserSession();
+    const unsubscribePromise = checkSessionAndSubscribe();
 
-    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log("[v0] onAuthStateChanged user:", firebaseUser ? firebaseUser.uid : null)
-      setUser(firebaseUser)
-      if (firebaseUser) {
-        storeUserSession(firebaseUser);
-      }
-      setLoading(false)
-    })
-    return () => unsub()
-  }, [])
+    // Cleanup subscription on unmount
+    return () => {
+      unsubscribePromise.then(unsub => {
+        if (unsub) unsub();
+      });
+    };
+  }, []);
+
 
 
   const mapFirebaseError = (code?: string) => {
@@ -69,6 +86,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return "Something went wrong. Please try again."
     }
   }
+
+
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null)
@@ -98,11 +117,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
+  // ... inside AuthProvider component
+
   const logout = useCallback(async () => {
     setError(null)
     console.log("[v0] logout start")
     await signOut(auth)
-    await clearUserSession();
+    await clearUserSession(); // Clears session from AsyncStorage
     console.log("[v0] logout success")
   }, [])
 
