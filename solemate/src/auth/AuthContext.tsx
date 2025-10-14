@@ -10,6 +10,7 @@ import {
   type User,
 } from "firebase/auth"
 import { auth } from "../../firebaseConfig"
+import { storeUserSession, getUserSession, clearUserSession } from "../utils/session"
 
 type AuthContextType = {
   user: User | null
@@ -28,15 +29,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Subscribe to auth state; with inMemoryPersistence, this only lives during app runtime
   useEffect(() => {
+    const checkUserSession = async () => {
+      const storedUser = await getUserSession();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+      setLoading(false);
+    };
+
+    checkUserSession();
+
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       console.log("[v0] onAuthStateChanged user:", firebaseUser ? firebaseUser.uid : null)
       setUser(firebaseUser)
+      if (firebaseUser) {
+        storeUserSession(firebaseUser);
+      }
       setLoading(false)
     })
     return () => unsub()
   }, [])
+
 
   const mapFirebaseError = (code?: string) => {
     switch (code) {
@@ -60,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null)
     console.log("[v0] login start:", email)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      await storeUserSession(userCredential.user);
       console.log("[v0] login success")
     } catch (e: any) {
       console.log("[v0] login error:", e?.code, e?.message)
@@ -73,7 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null)
     console.log("[v0] register start:", email)
     try {
-      await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      await storeUserSession(userCredential.user);
       console.log("[v0] register success")
     } catch (e: any) {
       console.log("[v0] register error:", e?.code, e?.message)
@@ -86,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null)
     console.log("[v0] logout start")
     await signOut(auth)
+    await clearUserSession();
     console.log("[v0] logout success")
   }, [])
 
